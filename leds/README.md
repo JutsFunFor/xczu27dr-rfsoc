@@ -3,23 +3,24 @@
 **Status: ✅ working.**
 
 Three LEDs and six header pins. Not the most glamorous interface on an RFSoC
-board, but it's the one you reach for constantly: an LED you can turn on from
-a script is the fastest way to prove a bitstream really loaded and the fabric
-is really running.
+board, but it's the one you'll reach for constantly — an LED you can turn on
+from a script is the fastest way there is to prove a bitstream really loaded and
+the fabric really is running.
 
-Getting here also settled an argument. Example code for this board disagrees
-with itself about the I/O voltage on these exact pins, and one version is wrong
-in a way that could damage a bank. That story is further down.
+Getting here also settled an argument. Example code for this board contradicts
+itself about the I/O voltage on these exact pins, and one version is wrong in a
+way that could damage a bank. That story's further down, and it's the part of
+this page worth reading even if you never touch an LED.
 
 ```bash
 cd leds
 vivado -mode batch -source led_test.tcl
 ```
 
-The first run builds `build/led_top.bit`, which takes a few minutes on a part
-this size, then programs it and walks the pins. Later runs reuse the bitstream.
+The first run builds `build/led_top.bit` — a few minutes on a part this size —
+then programs it and walks the pins. Later runs reuse the bitstream.
 
-The automated part passes on hardware:
+The automated half passes on hardware:
 
 ```
 == AXI self-test
@@ -28,14 +29,14 @@ The automated part passes on hardware:
 == AXI SELF-TEST PASSED
 ```
 
-After that the script lights each LED on its own so you can check it against
-the silkscreen, then drives each J7 pin high in turn so you can find it with a
+After that the script lights each LED on its own so you can check it against the
+silkscreen, then drives each J7 pin high in turn so you can find it with a
 meter. Those two are yours to confirm by looking; no script can do it for you.
 
 The LED-to-silkscreen mapping below was confirmed by eye, separately, using a
-plain RTL blink design. The J7 pin order is read from the schematic and the
-AXI path to it's proven, but nobody has yet put a probe on the header to
-confirm the physical ordering.
+plain RTL blink design. The J7 pin order is read from the schematic and the AXI
+path to it is proven — but nobody has yet put a probe on the header to confirm
+the physical ordering.
 
 ---
 
@@ -43,13 +44,30 @@ confirm the physical ordering.
 
 ```mermaid
 flowchart LR
-  AXI["JTAG-to-AXI master<br/>0x44A0_0000"] --> GPIO["AXI GPIO<br/>dual channel"]
+  CLK{{"STARTUPE3 CFGMCLK<br/>internal oscillator"}}
+  AXI["JTAG-to-AXI master<br/>0x44A0_0000"]
+  GPIO["AXI GPIO<br/>dual channel"]
+
+  CLK -->|"clock"| AXI
+  AXI ==> GPIO
+
   GPIO -->|"ch1 bits 2:0"| L["led[2:0]"]
   GPIO -->|"ch2 bits 5:0"| J["j7_io4 … j7_io9"]
-  L --> D1["A10 — DT1"]
-  L --> D5["D12 — DT5"]
-  L --> D4["H14 — DT4"]
-  CLK["STARTUPE3 CFGMCLK<br/>internal oscillator"] --> AXI
+
+  L --> D1(["A10 — DT1"])
+  L --> D5(["D12 — DT5"])
+  L --> D4(["H14 — DT4"])
+  J --> HDR(["J7 header<br/>pins 4 … 9"])
+
+  classDef pl   fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
+  classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
+  classDef led  fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#450a0a
+  classDef ext  fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
+
+  class AXI,GPIO,L,J pl
+  class CLK clk
+  class D1,D5,D4 led
+  class HDR ext
 ```
 
 | signal | ball | schematic net | silkscreen | I/O standard |
@@ -62,7 +80,7 @@ The LEDs are anode-fed, so driving the pin high is what lights them.
 
 ### J7, the only free probeable pins on the module
 
-Everything else that's not already committed to something disappears into the
+Everything else that isn't already committed to something disappears into the
 bottom-side carrier connector. J7 is on top, and you can get a probe on it.
 
 | J7 pin | ball | net | also on |
@@ -77,12 +95,10 @@ bottom-side carrier connector. J7 is on top, and you can get a probe on it.
 | 8 | `J12` | `HD89_IO_N12` | JT2.9 |
 | 9 | `K12` | `HD89_IO_P12` | JT2.11 |
 
-> Pins 1, 2 and 3 are power and ground. Don't short them, and don't put
+> ⚠️ Pins 1, 2 and 3 are power and ground. Don't short them, and don't put
 > anything on them that drives.
 
 ## The bank voltage question, settled
-
-This is the part worth reading even if you never touch an LED.
 
 You'll come across example constraint files for this board that declare
 `LVCMOS18` on balls `A10` and `H14`, and others that declare `LVCMOS33` on the
@@ -94,12 +110,12 @@ The schematic answers cleanly. Bank 88 VCCO (`E13`, `H12`) and bank 89 VCCO
 anywhere on the board: `VCC_3V3`, through ferrite bead `LT14`. There's an
 alternate feed through `LT13`, but it's marked NC.
 
-**Banks 88 and 89 are 3.3 V, so `LVCMOS33` is the correct one.**
+> ✅ **Banks 88 and 89 are 3.3 V, so `LVCMOS33` is the correct one.**
 
-The insidious part is that the wrong setting still works. The output stage
-swings to whatever VCCO actually is, and Vivado has no way of knowing the board
-rail without a board file, so it builds without complaint and the LEDs light up
-normally. Nothing tells you anything is amiss. That's exactly why the mistake
+The insidious part is that the wrong setting still works. The output stage swings
+to whatever VCCO actually is, and Vivado has no way of knowing the board rail
+without a board file, so it builds without complaint and the LEDs light up
+normally. Nothing tells you anything is amiss. Which is exactly why the mistake
 survives in code people hand around.
 
 Confirmed on silicon afterwards: the LEDs light and behave correctly at
@@ -108,8 +124,8 @@ Confirmed on silicon afterwards: the LEDs light and behave correctly at
 ## Register map
 
 There's one dual-channel AXI GPIO sitting behind a JTAG-to-AXI master. Both
-channels are outputs, so reading a data register gives you back what you last
-wrote. That's what the script's self-test checks, before it asks you to look
+channels are outputs, so reading a data register gives you back whatever you last
+wrote — which is what the script's self-test checks, before it asks you to look
 at anything with your eyes.
 
 | address | | bits |
@@ -138,16 +154,16 @@ run_hw_axi [get_hw_axi_txns w]      ;# all three LEDs on
 
 ## Why the clock comes from STARTUPE3
 
-This design has no external clock and no processor block, so it needs to find a
-clock somewhere. `STARTUPE3` provides one: `CFGMCLK`, the internal
-configuration oscillator. It's always running, depends on nothing outside the
-chip, and is nominally 50 MHz — though the datasheet only promises somewhere
-between 30 and 65 MHz.
+This design has no external clock and no processor block, so it has to find one
+somewhere. `STARTUPE3` provides it: `CFGMCLK`, the internal configuration
+oscillator. It's always running, depends on nothing outside the chip, and is
+nominally 50 MHz — though the datasheet only promises somewhere between 30 and
+65 MHz.
 
-That vagueness makes it useless as a time base and perfectly fine for an AXI
-bus you poke at over JTAG.
+That vagueness makes it useless as a time base and perfectly fine for an AXI bus
+you poke at over JTAG.
 
-Because `CFGMCLK` can't be trusted to a known frequency, this design
-deliberately doesn't put timed waveforms on J7. It sets one pin at a time and
-holds it, so you identify pins with a meter rather than by measuring a
-frequency that might be 30% off.
+And because `CFGMCLK` can't be trusted to a known frequency, this design
+deliberately puts no timed waveforms on J7. It sets one pin at a time and holds
+it, so you identify pins with a meter rather than by measuring a frequency that
+might be 30% off.

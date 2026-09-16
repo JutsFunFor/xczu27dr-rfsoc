@@ -35,7 +35,17 @@
 # =============================================================================
 set LABDIR [file dirname [file normalize [info script]]]
 file mkdir [file join $LABDIR out]
-source [file join $LABDIR out waveform.tcl]
+
+# This script plays a waveform into an already-programmed device. It builds
+# nothing and it programs nothing, so say plainly which step is missing rather
+# than dying on a bare "couldn't read file".
+set WAVE [file join $LABDIR out waveform.tcl]
+if {![file exists $WAVE]} {
+    puts "== ERROR: $WAVE does not exist."
+    puts "== Generate it first:   python3 gen_waveform.py"
+    exit 1
+}
+source $WAVE
 
 # Offsets move between IP versions, so prefer the map build.tcl wrote.
 array set ADDR {}
@@ -60,6 +70,14 @@ set dev [lindex [get_hw_devices xczu27dr*] 0]
 current_hw_device $dev
 refresh_hw_device -update_hw_probes false $dev
 set axi [lindex [get_hw_axis -quiet] 0]
+if {$axi eq ""} {
+    puts "== ERROR: no JTAG-to-AXI master on the chain."
+    puts "== This script does not program the device. Load the example design"
+    puts "== first:   vivado -mode batch -source rfdc_status.tcl"
+    puts "== and if that cannot find a bitstream, build it with build.tcl."
+    close_hw_manager
+    exit 1
+}
 
 proc wr {axi addr data} {
     catch { delete_hw_axi_txn [get_hw_axi_txns -quiet w] }

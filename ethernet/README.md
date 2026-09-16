@@ -5,7 +5,7 @@
 The link comes up at 1000 Mb full duplex, and eight frames put on the wire by
 GEM3 were counted by the host's own network card as **eight good frames with
 zero CRC errors**. That last detail matters more than it sounds like it does,
-for reasons explained below.
+for reasons that become clear below.
 
 ```bash
 cd ethernet
@@ -14,25 +14,29 @@ ZU27DR_NIC=<nic> xsdb eth_verify.tcl
 ```
 
 Put the board in JTAG boot mode and run an Ethernet cable from it straight into
-the host network card you named. You don't need an IP address on that
-interface — the test sends raw frames and counts them. No SD card, no boot
-image, no serial console.
+the host network card you named. You don't need an IP address on that interface
+— the test sends raw frames and counts them. No SD card, no boot image, no
+serial console.
 
-Here's what a passing run looks like, using the `psu_init` that `build.tcl`
-generates. No boot image, no SD card — it comes up on a bare board over JTAG:
+Here's a passing run, using the `psu_init` that `build.tcl` generates. Bare
+board, over JTAG:
 
 ```
 == GEM3_REF_CTRL 06010C00  RST_LPD_IOU0 00000007 (bit3=gem3 rst)
 == net_ctrl 00000010  net_cfg 00300000 (management port up)
 == PHY@7  id2 0x001C  BMCR 0x1040  BMSR 0x79A9
+   link+autoneg up at t+4s
 == link up at 1000Mb   reg0x11 0x0109 (strapped 0x0109)   host link 1000 Mb/s
 == MAC transmitted 8   host received 8 good, 0 CRC errors
 == ETHERNET PASS
 ```
 
-That last line is the one that counts. The host's own network card accepted
-all eight frames with a correct FCS, which no amount of self-reported MAC
-statistics can fake.
+`BMSR` reads `0x79A9` on a cold link and `0x79AD` if the link is already up when
+the script starts — bit 2 is link status, and both are fine.
+
+That last line is the one that counts. The host's own network card accepted all
+eight frames with a correct FCS, which no amount of self-reported MAC statistics
+can fake.
 
 ---
 
@@ -40,11 +44,28 @@ statistics can fake.
 
 ```mermaid
 flowchart LR
-  GEM["GEM3<br/>0xFF0E_0000<br/>Cadence MAC"]
-  GEM -->|"RGMII<br/>MIO 64..75"| PHY["RTL8211FD<br/>MDIO address 7"]
-  GEM -->|"MDIO<br/>MIO 76..77"| PHY
-  PHY --> MAG["magnetics"] --> RJ["RJ45"]
-  IOPLL["IOPLL"] -->|"125 MHz<br/>GEM3_REF_CTRL"| GEM
+  IOPLL{{"IOPLL<br/>125 MHz"}}
+  GEM["GEM3 · Cadence MAC<br/>0xFF0E_0000"]
+  PHY["RTL8211FD<br/>MDIO address 7"]
+  MAG["magnetics"]
+  RJ(["RJ45"])
+  HOST(["host NIC<br/><i>counts what arrives</i>"])
+
+  IOPLL -->|"GEM3_REF_CTRL"| GEM
+  GEM ==>|"RGMII<br/>MIO 64…75"| PHY
+  GEM -.->|"MDIO<br/>MIO 76…77"| PHY
+  PHY --> MAG --> RJ
+  RJ ==>|"Cat-5e"| HOST
+
+  classDef ps   fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0b2545
+  classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
+  classDef ext  fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
+  classDef host fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#082f49
+
+  class GEM,PHY,MAG ps
+  class IOPLL clk
+  class RJ ext
+  class HOST host
 ```
 
 | | |
@@ -56,19 +77,18 @@ flowchart LR
 | Reference clock | 125 MHz from IOPLL, `GEM3_REF_CTRL` = `0x06010C00` |
 | Speeds | 10 / 100 / 1000 |
 
-> **The PHY is at address 7.** A ZCU111 puts it at 0x0C. If you're starting
-> from ZCU111 material, and device trees especially, this is the one line you
-> have to change: the `ethernet-phy@7` node and the `phy-handle` that points at
-> it.
+> ⚠️ **The PHY is at address 7.** A ZCU111 puts it at 0x0C. If you're starting
+> from ZCU111 material — device trees especially — this is the one line you have
+> to change: the `ethernet-phy@7` node and the `phy-handle` that points at it.
 
 ## Three things that fail silently
 
-This is the section worth reading before you write any of your own MAC setup
-code.
+This is the section worth reading before you write any MAC setup code of your
+own.
 
 **GEM3 will cheerfully increment `frames_transmitted` while absolutely nothing
-reaches the wire.** Three pieces of state decide whether it genuinely
-transmits, and not one of them complains when it's missing:
+reaches the wire.** Three pieces of state decide whether it genuinely transmits,
+and not one of them complains when it's missing:
 
 | register | offset | value used here | what goes wrong without it |
 |---|---|---|---|
@@ -77,16 +97,16 @@ transmits, and not one of them complains when it's missing:
 | `receive_q_ptr` | `0x018` | a real ring | left at reset with RX enabled, the DMA wedges |
 
 The last one is the really unpleasant one, because an unconfigured **receive**
-pointer stops **transmit**. Queue 1 does the same thing, which is why the
-script parks queue 1's pointers on dummy used descriptors.
+pointer stops **transmit**. Queue 1 does the same thing, which is why the script
+parks queue 1's pointers on dummy used descriptors.
 
 There's a fourth trap of a slightly different kind:
 
-> **The management port has to be enabled before your first MDIO access.** Set
-> the MDC divider in `net_cfg[20:18]` and the enable bit in `net_ctrl[4]`,
-> *then* talk to the PHY. Do it in the other order and every MDIO register
-> reads back `0x0000`, which looks exactly like a missing or dead PHY and will
-> send you hunting for a hardware fault that's not there.
+> ⚠️ **The management port has to be enabled before your first MDIO access.** Set
+> the MDC divider in `net_cfg[20:18]` and the enable bit in `net_ctrl[4]`, *then*
+> talk to the PHY. Do it the other way round and every MDIO register reads back
+> `0x0000`, which looks exactly like a missing or dead PHY and will send you
+> hunting for a hardware fault that isn't there.
 
 ## The PHY delay register
 
@@ -110,16 +130,27 @@ it's actively misleading.
 
 The script snapshots `/sys/class/net/<nic>/statistics/rx_packets` and
 `rx_crc_errors` before and after, sends a fixed number of frames, and then
-insists all three numbers agree: GEM3's own transmit count, the host's
-good-frame count, and zero CRC errors.
+insists all three numbers agree: GEM3's own transmit count, the host's good-frame
+count, and zero CRC errors.
 
 That third number is what caught the `0x0009` delay failure. A frame with a bad
 FCS increments the host's `rx_crc_errors` and not `rx_packets`, so a test that
 only counted packets would have called it a pass.
 
-The frames go out as broadcast with Ethertype `0x88B5`, a value IEEE reserves
-for local experimental use, carrying an ASCII payload. So they're easy to
-spot on the host.
+The frames go out as broadcast with Ethertype `0x88B5`, a value IEEE reserves for
+local experimental use, carrying an ASCII payload — so they're easy to spot on
+the host.
+
+## When it says MISMATCH
+
+If the run ends in `!! ETHERNET MISMATCH` with `host link -1 Mb/s` and zero
+frames received, you named the wrong interface. `-1` is what
+`/sys/class/net/<nic>/speed` reports when that interface has no carrier, so the
+board is plugged into a different one.
+
+The giveaway is the combination: the board's own PHY reporting `link up at
+1000Mb` while the host shows nothing at all. The board is fine; you're watching
+the wrong port. `ip -br link` will show you which one actually has carrier.
 
 ## Watching it from the host
 
@@ -132,10 +163,10 @@ sudo tcpdump -i <nic> -e -X ether proto 0x88b5
 `eth_verify.tcl` proves the physical path works. It doesn't give you a socket.
 
 For that you need software running on the board, and the usual first step is a
-Vitis lwIP echo application, or else Linux. Neither is in this folder. The lwIP
-route needs a Vitis application build and Linux needs an SD card, and while
-both work on this board, neither has been taken end to end here yet. This
-repository documents what has actually been done.
+Vitis lwIP echo application, or else Linux. Neither is in this folder: the lwIP
+route needs a Vitis application build and Linux needs an SD card, and while both
+work on this board, neither has been taken end to end here yet. This repository
+documents what has actually been done.
 
 ## Register cheat sheet
 
@@ -154,4 +185,4 @@ GEM3 lives at `0xFF0E_0000`.
 | `0x088` / `0x08C` | `laddr1` low / high |
 | `0x108` | `frames_transmitted` |
 | `0x158` | `frames_received` |
-| `0x440` / `0x480` | queue 1 RX / TX pointers |
+| `0x440` / `0x480` | queue 1 **TX** / **RX** pointers — that order, not the other one |

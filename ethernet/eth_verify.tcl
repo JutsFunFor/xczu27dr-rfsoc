@@ -121,7 +121,7 @@ puts [format "== link %s at %s   reg0x11 0x%04X (strapped 0x0109)   host link %s
 # Leaving receive_q_ptr at its reset value with RX enabled is enough to wedge
 # the controller, in the same way queue 1 does.
 mwr [expr {$GEM + 0x010}] 0x00180710      ;# dma_cfg: INCR16, 8K rx buf, tx full store-and-forward
-mwr [expr {$GEM + 0x088}] 0xDD27000A      ;# laddr1 low  -> 00:0a:35:00:27:dd
+mwr [expr {$GEM + 0x088}] 0xDD27000A      ;# laddr1 low  -> MAC 0a:00:27:dd:35:00
 mwr [expr {$GEM + 0x08C}] 0x00000035      ;# laddr1 high
 for {set i 0} {$i < 4} {incr i} {
     mwr [expr {0xFFFC0300 + $i*8}] [expr {0xFFFC0800 + $i*0x800 | ($i == 3 ? 0x2 : 0)}]

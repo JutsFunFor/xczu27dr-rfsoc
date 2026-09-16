@@ -14,11 +14,11 @@
 // HOW IT MEASURES
 //
 //   Each refclk pair -> IBUFDS_GTE4 -> ODIV2 (refclk / 2) -> BUFG_GT -> fabric.
-//   A gate window 2^22 cycles long is generated from STARTUPE3's CFGMCLK. In
+//   A gate window 2^21 cycles long is generated from STARTUPE3's CFGMCLK. In
 //   each refclk domain a counter runs for the duration of the gate and latches
 //   its total when the gate falls.
 //
-//     f_refclk = 2 * count * f_cfgmclk / 2^22
+//     f_refclk = 2 * count * f_cfgmclk / 2^21
 //
 //   CFGMCLK is an internal oscillator specified only as 30-65 MHz, so the
 //   ABSOLUTE numbers carry that error. The RATIOS between the four channels do

@@ -70,7 +70,7 @@ module led_top (
   wire aresetn = rstcnt[7];
 
   //---------------------------------------------------------------------------
-  // JTAG-to-AXI master -> dual-channel AXI GPIO (see led_bd.tcl)
+  // JTAG-to-AXI master -> dual-channel AXI GPIO (built inline by led_test.tcl)
   //---------------------------------------------------------------------------
   wire [2:0] led_o;
   wire [5:0] j7_o;

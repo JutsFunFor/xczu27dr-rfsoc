@@ -6,12 +6,14 @@ LABDIR = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(LABDIR, "out")
 os.makedirs(OUT, exist_ok=True)
 import sys
-# dac_tone.tcl performs the capture and writes it into lab 40
+# loopback.tcl performs the capture and writes it to out/capture.txt
 CAPTURE = sys.argv[1] if len(sys.argv) > 1 else os.path.join(OUT, "capture.txt")
 CAPTURE = os.path.abspath(CAPTURE)
 print(f"capture: {CAPTURE}")
 
 FS = 4.0e9
+# ADC samples are 14-bit LEFT-aligned in a 16-bit word, so full scale is 0x7FFC.
+FULL_SCALE = 32764
 chans = collections.defaultdict(list)
 for line in open(CAPTURE):
     if line.startswith("#"): continue
@@ -43,4 +45,5 @@ for name, raw in chans.items():
     print(f"   OR of all words 0x{lsb_mask:04X}  -> {'bits [1:0] always zero' if not lsb_mask & 3 else 'all bits used'}")
     print(f"   peak       {freqs[k]/1e6:8.2f} MHz   (bin {k}, amplitude {2*sp[k]/win.sum():.0f} LSB)")
     print(f"   next peak  {freqs[k2]/1e6:8.2f} MHz   {peak_db[k2]:.1f} dBc")
-    print(f"   full scale {32767}, so peak is {20*np.log10((2*sp[k]/win.sum())/32767+1e-30):.1f} dBFS")
+    # 14-bit left-aligned in 16 bits, so full scale is 0x7FFC and not 0x7FFF.
+    print(f"   full scale {FULL_SCALE}, so peak is {20*np.log10((2*sp[k]/win.sum())/FULL_SCALE+1e-30):.1f} dBFS")

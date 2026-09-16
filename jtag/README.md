@@ -2,13 +2,14 @@
 
 **Status: ✅ working.**
 
-JTAG is how this whole board got brought up. Before there was any Linux on it,
-JTAG is what loaded bitstreams, ran bare-metal code, and read or wrote any AXI
-or processor register you cared to name. It's the foundation everything else
-here sits on.
+JTAG is how this whole board got brought up. Long before there was any Linux on
+it, JTAG was what loaded bitstreams, ran bare-metal code, and read or wrote any
+AXI or processor register you cared to name. Everything else in this repository
+sits on top of it.
 
-So run this one first. If it doesn't pass, nothing else will, and the script
-is written to tell you why rather than just falling over.
+Which is why you should run this one first. If it doesn't pass, nothing else
+will — and the script is written to tell you *why* rather than just falling
+over.
 
 ```bash
 cd jtag
@@ -31,17 +32,38 @@ xsdb jtag_check.tcl
 
 ```mermaid
 flowchart TD
-  CABLE["Platform Cable USB II"] --> TAP["xczu27dr<br/>IDCODE 0x147E4093"]
-  TAP --> PSTAP["PS TAP"]
-  TAP --> PLTAP["PL TAP"]
-  PSTAP --> PMU["PMU MicroBlaze"]
-  PSTAP --> PSU["PSU — the DAP memory view<br/>reads and writes any address"]
+  CABLE(["Platform Cable USB II"])
+  TAP{{"xczu27dr<br/>IDCODE 0x147E4093"}}
+  CABLE ==> TAP
+
+  TAP ==> PSTAP["PS TAP"]
+  TAP ==> PLTAP["PL TAP"]
+
+  PSTAP --> PSU["<b>PSU</b> — the DAP memory view<br/>reads and writes any address"]
+  PSTAP --> PMU["PMU<br/>MicroBlaze"]
   PSTAP --> APU["APU<br/>4 × Cortex-A53"]
   PSTAP --> RPU["RPU<br/>2 × Cortex-R5"]
+
   PLTAP --> HUB["debug hub"]
-  HUB --> AXI["JTAG-to-AXI master<br/>if the loaded design has one"]
+  HUB --> AXI["JTAG-to-AXI master<br/><i>if the loaded design has one</i>"]
   HUB --> ILA["ILA / VIO cores"]
+
+  classDef ps    fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0b2545
+  classDef pl    fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
+  classDef clk   fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
+  classDef ext   fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
+  classDef star  fill:#bbf7d0,stroke:#15803d,stroke-width:3px,color:#052e16
+
+  class PSTAP,PMU,APU,RPU ps
+  class PLTAP,HUB,AXI,ILA pl
+  class TAP clk
+  class CABLE ext
+  class PSU star
 ```
+
+`PSU` is highlighted because it's the one you'll use most — it's the memory view
+that lets you read and write any address on the chip without a single line of
+software running.
 
 A healthy enumeration looks roughly like this:
 
@@ -56,9 +78,9 @@ A healthy enumeration looks roughly like this:
        10  Cortex-A53 #0 (Running)
 ```
 
-If you've other FPGA cables plugged into the same machine, they show up in
-this list as well. That's why the script matches on the part name instead of
-counting positions.
+If you've got other FPGA cables plugged into the same machine they'll show up in
+that list too, which is exactly why the script matches on the part name instead
+of counting positions.
 
 ## What the script actually checks
 
@@ -71,10 +93,10 @@ counting positions.
 | 5 | PL configuration status | whether a bitstream is currently loaded |
 
 Step 3 deliberately uses on-chip RAM at `0xFFFC0000` rather than DDR. OCM is
-powered and usable with no DDR, no FSBL and no boot whatsoever, which is
-exactly the state the board is in under JTAG boot mode. Nothing is running, so
-scribbling on it's harmless. It wouldn't be harmless while an FSBL or U-Boot
-was live, but in that situation you wouldn't be running this script.
+powered and usable with no DDR, no FSBL and no boot whatsoever — which is
+precisely the state the board is in under JTAG boot mode. Nothing's running, so
+scribbling on it is harmless. It would *not* be harmless while an FSBL or U-Boot
+was live, but in that situation you wouldn't be running this script anyway.
 
 ## Boot mode
 
@@ -87,9 +109,10 @@ Decoding follows UG1085 table 11-1:
 | `0001` | QSPI 24-bit | | `0110` | eMMC 1.8 V |
 | `0010` | QSPI 32-bit | | `0111` | USB0 |
 | `0011` | SD0 | | `1000` | PJTAG0 |
+| | | | `1001` | PJTAG1 |
 | `0100` | NAND | | `1110` | SD1 level-shifted |
 
-This board reads back `0x00000005`, which is SD1. That agrees with what the
+This board reads back `0x00000005`, which is SD1 — and that agrees with what the
 board says about itself on the console, where the FSBL prints `SD1 Boot Mode`
 and `File name is 1:/BOOT.BIN` before its own banner.
 
@@ -97,34 +120,33 @@ and `File name is 1:/BOOT.BIN` before its own banner.
 
 **`connect` comes back before the chain has been scanned.** The hw_server
 polling thread needs a few seconds to open the cable. Ask for `targets` any
-sooner and you get an empty list from a perfectly healthy cable, which looks
+sooner and you'll get an empty list from a perfectly healthy cable — which looks
 exactly like a dead board. The `after 3000` in the script isn't padding.
 
 **`mrd -value` returns decimal on some xsdb builds and hex on others**, with no
-`0x` to tell you which you got. Parse it with `scan %x` and it corrupts the
-value silently, which is about the worst way for a bug to behave. Every script
-in this BSP parses the labelled `mrd` form instead. Look at `read32` if you
-want to borrow it.
+`0x` to tell you which you got. Parse it with `scan %x` and it corrupts the value
+silently, which is about the worst way for a bug to behave. Every script in this
+BSP parses the labelled `mrd` form instead — borrow `read32` if you want it.
 
 **Writes to processor registers need the security gates open first.** The magic
 incantation is `mwr 0xFFCA0038 0x1FF`, which opens LPD peripheral protection.
-Skip it and your writes are dropped without complaint while reads come back as
+Skip it and your writes get dropped without complaint while reads come back as
 zero.
 
-**`rst -system` re-enters the boot ROM.** This reboots the board from JTAG
-without anyone having to reach for the power switch, which is handy when the
-board lives somewhere awkward.
+**`rst -system` re-enters the boot ROM.** That reboots the board from JTAG
+without anyone reaching for the power switch, which is handy when the board
+lives somewhere awkward.
 
-**Several cables on one host break more than you would expect.** With more than
-one FPGA cable attached, xsdb's `fpga` command reports "Multiple FPGA devices
-found" and gives up, and `device status config_status` refuses to pick a device
-even after you've selected a target. Neither failure says anything at all
-about this board.
+**Several cables on one host break more than you'd expect.** With more than one
+FPGA cable attached, xsdb's `fpga` command reports "Multiple FPGA devices found"
+and gives up, and `device status config_status` refuses to pick a device even
+after you've selected a target. Neither failure says anything at all about this
+board.
 
-The way around it's to program through Vivado's hardware manager, which is
-what every bitstream-loading script here does. `jtag_check.tcl` handles the
-second case by falling back to inferring PL configuration from whether a debug
-hub shows up on the chain.
+The way around it is to program through Vivado's hardware manager, which is what
+every bitstream-loading script here does. `jtag_check.tcl` handles the second
+case by falling back to inferring PL configuration from whether a debug hub
+shows up on the chain.
 
 ## Poking at things by hand
 

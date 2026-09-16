@@ -8,13 +8,14 @@ LABDIR = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(LABDIR, "out")
 os.makedirs(OUT, exist_ok=True)
 import sys
-# dac_tone.tcl performs the capture and writes it into lab 40
+# loopback.tcl performs the capture and writes it to out/capture.txt
 CAPTURE = sys.argv[1] if len(sys.argv) > 1 else os.path.join(OUT, "capture.txt")
 CAPTURE = os.path.abspath(CAPTURE)
 print(f"capture: {CAPTURE}")
 
 FS = 4.0e9
-FULL_SCALE = 32767.0
+# 14-bit left-aligned in 16 bits: full scale is 0x7FFC, not 0x7FFF.
+FULL_SCALE = 32764.0
 SURFACE, INK, INK2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#dcdcd8"
 SERIES = {"ADC0  VIN01 SMA": "#2a78d6", "ADC2  VIN23 SMA": "#eb6834"}
 LABEL = {"ADC0_VIN01": "ADC0  VIN01 SMA", "ADC2_VIN23": "ADC2  VIN23 SMA"}

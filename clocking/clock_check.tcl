@@ -51,6 +51,11 @@ set BIT   [file join $BUILD clk_meas_top.bit]
 # Must match GATE_BITS in rtl/clk_meas_top.v.
 set GATE_CYCLES [expr {1 << 21}]
 
+# Below this many counts in a gate window, call it no clock. 1000 counts is
+# around 50 kHz; the slowest thing a GTY reference input will ever be asked to
+# carry is three orders of magnitude above that.
+set NOCLK_MAX 1000
+
 set REF_MHZ  156.25
 set do_build 1
 set do_prog  1
@@ -309,8 +314,19 @@ set live 0
 set idx 0
 foreach {addr name pins} $CH {
     set c $count($idx)
-    if {$c == 0} {
-        puts [format "   %-18s %-12s  no clock" $name $pins]
+    # A dead differential input does not always latch a clean zero. Left
+    # floating it picks up the odd edge from its neighbours, and one or two
+    # counts in a 41 ms window come back instead. That is about 50 Hz, which is
+    # not a clock by any reading -- a GTY reference is tens of megahertz and
+    # lands in the millions of counts. So the test is a threshold, not == 0,
+    # and the stray count is printed rather than hidden.
+    if {$c < $NOCLK_MAX} {
+        if {$c == 0} {
+            puts [format "   %-18s %-12s  no clock" $name $pins]
+        } else {
+            puts [format "   %-18s %-12s  no clock (count %d -- stray edges on a floating input)" \
+                    $name $pins $c]
+        }
         incr fails
     } else {
         set mhz [expr {2.0 * $c * $cfgmclk / $GATE_CYCLES}]

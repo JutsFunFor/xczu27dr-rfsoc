@@ -297,7 +297,17 @@ refresh_hw_sio [lmap p $links {lindex $p 0}]
 # Report
 #-----------------------------------------------------------------------------
 puts ""
-puts [format "   %-22s %-10s %14s %14s" "link" "locked" "bit errors" "BER"]
+# Vivado hands these counters back as zero-padded decimal strings -- a bit
+# count arrives as "000206250000000" and an error count as "000000000000".
+# Tcl reads a leading zero as octal and errors on "08", so strip the padding
+# before doing arithmetic on any of it, and print something a person can read.
+proc ibert_num {s} {
+    if {![regexp {^[0-9]+$} $s]} { return "" }
+    set t [string trimleft $s "0"]
+    return [expr {$t eq "" ? "0" : $t}]
+}
+
+puts [format "   %-22s %-10s %12s %12s" "link" "locked" "bit errors" "BER"]
 set bad 0
 foreach pair $links {
     set l     [lindex $pair 0]
@@ -306,10 +316,18 @@ foreach pair $links {
     catch { set lock [get_property RX_RECEIVED_BIT_COUNT $l] }
     catch { set errs [get_property LOGIC.ERRBIT_COUNT $l] }
     catch { set ber  [get_property RX_BER $l] }
-    set locked [expr {[string is entier -strict $lock] && $lock > 0}]
-    if {!$locked} { incr bad ; set lockstr "NO" } else { set lockstr "yes" }
-    if {[string is entier -strict $errs] && $errs > 0} { incr bad }
-    puts [format "   %-22s %-10s %14s %14s" $label $lockstr $errs $ber]
+
+    set lockn [ibert_num $lock]
+    set errn  [ibert_num $errs]
+
+    if {$lockn eq "" || $lockn <= 0} { incr bad ; set lockstr "NO" } else { set lockstr "yes" }
+    if {$errn eq ""} { incr bad } elseif {$errn > 0} { incr bad }
+
+    set errdisp [expr {$errn eq "" ? "?" : $errn}]
+    set berdisp $ber
+    if {[string is double -strict $ber]} { set berdisp [format "%.2e" $ber] }
+
+    puts [format "   %-22s %-10s %12s %12s" $label $lockstr $errdisp $berdisp]
 }
 
 puts ""

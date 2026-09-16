@@ -16,39 +16,42 @@ it:
    cage 1  vendor : OEM     part : DAC-QSFP28-1M
 ```
 
-Pull one end out and that cage's `ModPrsL` flips to "no module fitted" while
-the other stays exactly where it was. Which is the pin mapping confirming
-itself, without anyone having to take the schematic on trust.
+Pull one end out and that cage's `ModPrsL` flips to "no module fitted" while the
+other stays exactly where it was — which is the pin mapping confirming itself,
+without anyone having to take the schematic on trust.
 
 ```bash
 cd qsfp
 vivado -mode batch -source qsfp_test.tcl
 ```
 
-The first run builds `build/qsfp_top.bit`, about five minutes, then programs
-it, reads both cages, exercises every control output, and reads any fitted
-module over I²C. Add `-tclargs noprog` to re-test without reprogramming.
+The first run builds `build/qsfp_top.bit` — about five minutes — then programs
+it, reads both cages, exercises every control output, and reads any fitted module
+over I²C. Add `-tclargs noprog` to re-test without reprogramming.
 
 **The high-speed lanes pass too.** All eight of them, PRBS-31 at 10.3125 Gbps
 through the same cable, with not one bit error:
 
 ```
-   link                   locked         bit errors            BER
-   cage0.0 -> cage1.0     yes                      0   4.84e-12
-   cage1.0 -> cage0.0     yes                      0   4.82e-12
-   cage0.1 -> cage1.1     yes                      0   4.79e-12
-   cage1.1 -> cage0.1     yes                      0   4.77e-12
-   cage0.2 -> cage1.2     yes                      0   4.74e-12
-   cage1.2 -> cage0.2     yes                      0   4.72e-12
-   cage0.3 -> cage1.3     yes                      0   4.69e-12
-   cage1.3 -> cage0.3     yes                      0   4.66e-12
+   link                   locked       bit errors          BER
+   cage0.0 -> cage1.0     yes                   0     9.66e-12
+   cage1.0 -> cage0.0     yes                   0     9.55e-12
+   cage0.1 -> cage1.1     yes                   0     9.47e-12
+   cage1.1 -> cage0.1     yes                   0     9.37e-12
+   cage0.2 -> cage1.2     yes                   0     9.28e-12
+   cage1.2 -> cage0.2     yes                   0     9.18e-12
+   cage0.3 -> cage1.3     yes                   0     9.09e-12
+   cage1.3 -> cage0.3     yes                   0     9.00e-12
 == RESULT: GTY PASS
 ```
 
-To be precise about what that BER column means: it's the confidence bound from
-a 20 second run, not a measured error rate. Twenty seconds at 10.3125 Gbps is
-roughly 2·10¹¹ bits and none of them came back wrong. Run it longer if you want
-a tighter bound.
+To be precise about what that BER column means: it's simply 1 / bits received,
+which is the bound you can claim when the error count is zero. It is not a
+measured error rate — you can't measure a rate of zero. The default ten-second
+dwell at 10.3125 Gbps is about 10¹¹ bits per link, and not one of them came back
+wrong. The figures drift down the column because each link is read a moment later
+than the one above it, so it's accumulated slightly more bits. Run
+`-tclargs dwell 60` if you want a tighter bound.
 
 ---
 
@@ -56,22 +59,43 @@ a tighter bound.
 
 ```mermaid
 flowchart LR
-  subgraph C0["cage 0 — schematic QSFP1"]
+  REF{{"RC21008B<br/>156.25 MHz"}}
+  GPIO["AXI GPIO<br/>0x44A0_0000"]
+  IIC0["AXI IIC · cage 0<br/>0x44A1_0000"]
+  IIC1["AXI IIC · cage 1<br/>0x44A2_0000"]
+  Q0["GTY quad 128<br/>GTYE4_COMMON_X0Y1<br/>channels X0Y4…X0Y7"]
+  Q1["GTY quad 129<br/>GTYE4_COMMON_X0Y2<br/>channels X0Y8…X0Y11"]
+
+  subgraph C0["cage 0 · schematic QSFP1"]
     S0["7 sidebands<br/>bank 88, LVCMOS33"]
     L0["4 lanes"]
   end
-  subgraph C1["cage 1 — schematic QSFP2"]
+
+  subgraph C1["cage 1 · schematic QSFP2"]
     S1["7 sidebands<br/>bank 88, LVCMOS33"]
     L1["4 lanes"]
   end
-  GPIO["AXI GPIO<br/>0x44A0_0000"] --> S0
-  GPIO --> S1
-  IIC0["AXI IIC<br/>0x44A1_0000"] --> S0
-  IIC1["AXI IIC<br/>0x44A2_0000"] --> S1
-  Q0["GTY quad 128<br/>GTYE4_COMMON_X0Y1<br/>channels X0Y4..X0Y7"] --> L0
-  Q1["GTY quad 129<br/>GTYE4_COMMON_X0Y2<br/>channels X0Y8..X0Y11"] --> L1
-  REF["RC21008B<br/>156.25 MHz"] --> Q0
+
+  REF --> Q0
   REF --> Q1
+  GPIO --> S0
+  GPIO --> S1
+  IIC0 -.->|"I²C"| S0
+  IIC1 -.->|"I²C"| S1
+  Q0 ==>|"10.3125 Gbps"| L0
+  Q1 ==>|"10.3125 Gbps"| L1
+  L0 ==>|"4 lanes · passive copper DAC cable"| L1
+  L1 ==>|"4 lanes · the other direction"| L0
+
+  classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
+  classDef pl   fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
+  classDef gty  fill:#ddd6fe,stroke:#6d28d9,stroke-width:3px,color:#2e1065
+  classDef cage fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
+
+  class REF clk
+  class GPIO,IIC0,IIC1 pl
+  class Q0,Q1 gty
+  class S0,S1,L0,L1 cage
 ```
 
 The two cages sit on **independent I²C buses**, which is why the test design
@@ -79,10 +103,10 @@ carries two controllers rather than one behind a mux.
 
 ## Sideband pins
 
-All fourteen live in bank 88, which is a 3.3 V bank — see
-[`../leds/`](../leds/) for how that got settled. `scl` and `sda` are open drain
-with 4k7 pull-ups to `QSFP_VCCT` fitted on the board, so drive them through an
-IOBUF and never drive them high.
+All fourteen live in bank 88, which is a 3.3 V bank — see [`../leds/`](../leds/)
+for how that got settled. `scl` and `sda` are open drain with 4k7 pull-ups to
+`QSFP_VCCT` fitted on the board, so drive them through an IOBUF and never drive
+them high.
 
 | QSFP28 pin | signal | direction | cage 0 ball | cage 1 ball | pull-up |
 |---|---|---|---|---|---|
@@ -94,12 +118,12 @@ IOBUF and never drive them high.
 | 28 | `IntL` | in, active low | `D14` | `H13` | 4k7 |
 | 31 | `LPMode` | out, active high | `E14` | `G13` | — |
 
-> **Watch the naming if you borrow constraints from elsewhere.** You'll find
+> ⚠️ **Watch the naming if you borrow constraints from elsewhere.** You'll find
 > these four control signals named inconsistently across example files for this
-> board, including one that calls cage 1's `ResetL` **`qsfp2_resetn`**. There
-> is no cage 2 — the schematic labels them `QSFP1` and `QSFP2`, and that name
-> is simply a typo. This BSP uses `qsfp0_*` and `qsfp1_*` throughout, with cage
-> 0 being the one whose lanes run to GTY quad 128.
+> board, including one that calls cage 1's `ResetL` **`qsfp2_resetn`**. There is
+> no cage 2 — the schematic labels them `QSFP1` and `QSFP2`, and that name is
+> simply a typo. This BSP uses `qsfp0_*` and `qsfp1_*` throughout, with cage 0
+> being the one whose lanes run to GTY quad 128.
 
 ## GTY reference clocks
 
@@ -129,13 +153,13 @@ channel `LOC`.
 | `0x44A2_0000` | AXI IIC, cage 1 | PG090 register map |
 
 The control bits read as **assert-high** even though the pins themselves are
-active low. That inversion lives in the RTL deliberately: the GPIO powers up
-with its data register at zero, and zero parks the cages safely with `ResetL`
-high, `ModSelL` high and `LPMode` low. Nothing gets driven into a module before
-you ask for it.
+active low. That inversion lives in the RTL deliberately: the GPIO powers up with
+its data register at zero, and zero parks the cages safely with `ResetL` high,
+`ModSelL` high and `LPMode` low. Nothing gets driven into a module before you ask
+for it.
 
-The status bits, by contrast, are **raw pin levels**. So `ModPrsL` reading 0
-means a module is present. The script does the decoding; the register doesn't.
+The status bits, by contrast, are **raw pin levels** — so `ModPrsL` reading 0
+means a module *is* present. The script does the decoding; the register doesn't.
 
 ## Reading a module
 
@@ -149,21 +173,21 @@ QSFP28 modules answer at 7-bit I²C address `0x50`, which is the same thing as
 | 148–163 | vendor name, ASCII, space padded |
 | 168–183 | vendor part number, ASCII |
 
-**`ModSelL` has to be driven low before the module will answer.** The script
-does that, reads, and releases it again.
+**`ModSelL` has to be driven low before the module will answer.** The script does
+that, reads, and releases it again.
 
 Two things turned up doing this with a cheap cable, and both are worth knowing:
 
 - **The whole lower page can read `0xFF`.** On the DAC-QSFP28-1M tested here,
-  bytes 0–127 come back as all `0xFF`, identifier included, while the upper
-  page returns perfectly clean ASCII vendor and part strings. That's the
-  module, not the reader: addressing that reached byte 148 correctly reached
-  byte 0 too. Partial SFF-8636 compliance is common on passive copper, so do
-  not treat a missing identifier as a failed read.
-- **Don't reset the I²C core between transfers.** `SOFTR` drops the core
-  mid-bus while the module is still clocking out a byte. The module then holds
-  SDA low waiting for a clock that never arrives, and every read after that
-  times out. Reset once per cage, then do as many reads as you like.
+  bytes 0–127 come back as all `0xFF`, identifier included, while the upper page
+  returns perfectly clean ASCII vendor and part strings. That's the module, not
+  the reader: addressing that reached byte 148 correctly reached byte 0 too.
+  Partial SFF-8636 compliance is common on passive copper, so don't treat a
+  missing identifier as a failed read.
+- **Don't reset the I²C core between transfers.** `SOFTR` drops the core mid-bus
+  while the module is still clocking out a byte. The module then holds SDA low
+  waiting for a clock that never arrives, and every read after that times out.
+  Reset once per cage, then do as many reads as you like.
 
 ## Testing the lanes
 
@@ -171,48 +195,47 @@ Two things turned up doing this with a cheap cable, and both are worth knowing:
 vivado -mode batch -source ibert_test.tcl
 ```
 
-This builds an IBERT design covering both quads, eight GTY lanes at
-10.3125 Gbps, programs it, links cage 0 to cage 1 in both directions and runs
+This builds an IBERT design covering both quads — eight GTY lanes at
+10.3125 Gbps — programs it, links cage 0 to cage 1 in both directions and runs
 PRBS-31. Roughly nine minutes to build and a minute to run. `-tclargs dwell 60`
 accumulates errors for longer, and `-tclargs noprog` re-tests without
 reprogramming.
 
 You need a cable between the two cages. A passive copper DAC cable is ideal,
 because it loops cage 0's four TX lanes into cage 1's four RX lanes and vice
-versa, which gives you eight links to test. A single-cage loopback module works
-too and gives you four.
+versa, giving you eight links to test. A single-cage loopback module works too
+and gives you four.
 
-**You also need the RC21008B programmed**, or there's no reference clock and
-nothing will come up at all. That's the FSBL's job on this board, not the
-fabric's — run [`../clocking/clock_check.tcl`](../clocking/) first and check
-it reports a reference on both quads.
+> ⚠️ **You also need the RC21008B programmed**, or there's no reference clock and
+> nothing will come up at all. That's the FSBL's job on this board, not the
+> fabric's — run [`../clocking/clock_check.tcl`](../clocking/) first and check it
+> reports a reference on both quads.
 
-The rate is worth a word. 10.3125 Gbps is 156.25 MHz × 66, the standard
-10GBASE-R line rate, and comfortably inside what a 1 m passive cable will
-carry. Start there: if a link doesn't work at 10G the problem isn't marginal
-signal integrity.
+The rate is worth a word. 10.3125 Gbps is 156.25 MHz × 66, the standard 10GBASE-R
+line rate, and comfortably inside what a 1 m passive cable will carry. Start
+there: if a link doesn't work at 10G, the problem isn't marginal signal
+integrity.
 
-The transceivers enumerate as `MGT_X0Y4` through `MGT_X0Y11`, with no quad in
-the name. Quad 128 is `X0Y4`–`X0Y7` and quad 129 is `X0Y8`–`X0Y11`, the same
+The transceivers enumerate as `MGT_X0Y4` through `MGT_X0Y11`, with no quad in the
+name. Quad 128 is `X0Y4`–`X0Y7` and quad 129 is `X0Y8`–`X0Y11` — the same
 numbering the board XDC uses, and the script splits them on that.
 
 ### Three things the IBERT IP won't tell you
 
-Getting this design to generate took a while, entirely because of the IP
-wizard. If you're configuring IBERT yourself, these will save you the same
-hour:
+Getting this design to generate took a while, entirely because of the IP wizard.
+If you're configuring IBERT yourself, these will save you the same hour:
 
 - **`C_PROTOCOL_QUAD_COUNT_1` counts quads, not lanes** — but when it disagrees
-  with the per-quad assignments, the error message complains about the *"Number
-  of Lanes"*, which sends you looking in entirely the wrong place. Set the
-  rate, the reference frequency, the quad count and both quad assignments in a
-  single `set_property`. Validation runs once per call and rejects any
-  intermediate state where those disagree.
+  with the per-quad assignments, the error message complains about the *"Number of
+  Lanes"*, which sends you looking in entirely the wrong place. Set the rate, the
+  reference frequency, the quad count and both quad assignments in a single
+  `set_property`. Validation runs once per call and rejects any intermediate state
+  where those disagree.
 - **IBERT demands an external differential system clock by default**, and this
   board has no spare clock input to give it. Set `C_SYSCLK_MODE_EXTERNAL 0` and
-  `C_SYSCLOCK_SOURCE_INT QUAD128_0`. Those, plus `External` and `QUAD129_0`,
-  are the only values it will accept.
-- **`open_example_project` doesn't leave the example project current.**
-  Queries after it still answer from the IP project, whose only top module is
-  the IP itself, so synthesis fails with "No Verilog or VHDL sources found".
-  Glob for the generated `.xpr`, `close_project`, and open it explicitly.
+  `C_SYSCLOCK_SOURCE_INT QUAD128_0`. Those, plus `External` and `QUAD129_0`, are
+  the only values it will accept.
+- **`open_example_project` doesn't leave the example project current.** Queries
+  after it still answer from the IP project, whose only top module is the IP
+  itself, so synthesis fails with "No Verilog or VHDL sources found". Glob for the
+  generated `.xpr`, `close_project`, and open it explicitly.

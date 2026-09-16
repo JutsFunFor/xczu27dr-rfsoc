@@ -22,7 +22,15 @@
 #   16 row bits + 10 column bits + 2 bank + 1 bank-group = one 8 Gbit x16 die
 #   64-bit bus / 16-bit devices                          = 4 devices
 #   DDR4_2400P at CL15-15-15                             = the fitted speed bin
-#   DPLL 1200 MHz / 2 = 600 MHz DDR clock                = DDR4-1200, 2400 MT/s
+#   DPLL 1200 MHz / 2 = 600 MHz controller clock         = DDR4-2400
+#
+# That last line is the one people misread. 600 MHz is the DDRC controller
+# clock, not the DDR clock. The controller runs 2:1 against the memory, so the
+# DRAM clock is 1200 MHz and the data rate is 2400 MT/s. You can confirm it
+# from the generated psu_init without trusting this comment: DRAMTMG0 comes out
+# 0x11122813, whose t_faw field is 18 and t_ras_min 19. Those are the values
+# for tFAW 30 ns and tRAS 32 ns at a 1200 MHz DRAM clock. A 600 MHz DRAM clock
+# would put 9 in both.
 #
 # The PS reference clock is a 33.333 MHz crystal, and every PLL derives from
 # it. Getting that number wrong scales every other frequency on the chip.
