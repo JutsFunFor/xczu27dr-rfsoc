@@ -43,21 +43,24 @@ the physical ordering.
 ## Pins
 
 ```mermaid
-flowchart LR
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
   CLK{{"STARTUPE3 CFGMCLK<br/>internal oscillator"}}
-  AXI["JTAG-to-AXI master<br/>0x44A0_0000"]
-  GPIO["AXI GPIO<br/>dual channel"]
+  AXI["JTAG-to-AXI master · 0x44A0_0000"]
+  GPIO["AXI GPIO · dual channel"]
 
   CLK -->|"clock"| AXI
   AXI ==> GPIO
-
   GPIO -->|"ch1 bits 2:0"| L["led[2:0]"]
   GPIO -->|"ch2 bits 5:0"| J["j7_io4 … j7_io9"]
+  L --> LEDS
+  J --> HDR(["J7 header · pins 4 … 9"])
 
-  L --> D1(["A10 — DT1"])
-  L --> D5(["D12 — DT5"])
-  L --> D4(["H14 — DT4"])
-  J --> HDR(["J7 header<br/>pins 4 … 9"])
+  subgraph LEDS["user LEDs"]
+    D1(["A10 — DT1"])
+    D5(["D12 — DT5"])
+    D4(["H14 — DT4"])
+  end
 
   classDef pl   fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
   classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03

@@ -46,22 +46,30 @@ it and reports all four reference clocks.
 ## The clock tree
 
 ```mermaid
-flowchart LR
-  XO{{"on-board<br/>crystal"}}
-  RC["<b>RC21008B</b><br/>VersaClock7<br/>8 outputs, I²C programmable"]
-  I2C["PS I²C<br/>device 0x09"]
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
+  XO{{"on-board crystal"}}
+  I2C["PS I²C · device 0x09"]
+  RC["RC21008B · VersaClock7<br/>8 outputs, I²C programmable"]
 
   XO --> RC
-  I2C -.->|"configured by the FSBL,<br/>never by psu_init"| RC
+  I2C -.->|"set up by the FSBL,<br/>never by psu_init"| RC
+  RC ==> OUT
+  OUT ~~~ PSC
 
-  RC ==>|"200 MHz"| ADC["ADC tile 224<br/>adc0_clk_p/n"]
-  RC ==>|"200 MHz"| DAC["DAC tile 229<br/>dac1_clk_p/n"]
-  RC ==>|"156.25 MHz"| Q0["GTY quad 128<br/>refclk0 M28/M29 — live<br/>refclk1 K28/K29 — unused"]
-  RC ==>|"156.25 MHz"| Q1["GTY quad 129<br/>refclk0 H28/H29 — live<br/>refclk1 F28/F29 — unused"]
-  RC -.->|"SYSREF"| SYNC["converter sync"]
+  subgraph OUT["RC21008B outputs"]
+    ADC["ADC tile 224 · 200 MHz<br/>adc0_clk_p/n"]
+    DAC["DAC tile 229 · 200 MHz<br/>dac1_clk_p/n"]
+    Q0["GTY quad 128 · 156.25 MHz<br/>refclk0 M28/M29 live<br/>refclk1 K28/K29 unused"]
+    Q1["GTY quad 129 · 156.25 MHz<br/>refclk0 H28/H29 live<br/>refclk1 F28/F29 unused"]
+    SYNC["SYSREF · converter sync"]
+  end
 
-  XTAL{{"33.333 MHz<br/>crystal"}}
-  XTAL --> PSPLL["PS PLLs<br/>APLL · DPLL · VPLL<br/>IOPLL · RPLL"]
+  subgraph PSC["separate PS clock tree"]
+    XTAL{{"33.333 MHz<br/>crystal"}}
+    PSPLL["PS PLLs<br/>APLL · DPLL · VPLL<br/>IOPLL · RPLL"]
+    XTAL --> PSPLL
+  end
 
   classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
   classDef hub  fill:#fde68a,stroke:#b45309,stroke-width:3px,color:#451a03

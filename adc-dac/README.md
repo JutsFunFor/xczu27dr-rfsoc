@@ -58,36 +58,33 @@ BSP adds.
 ## What's on the board
 
 ```mermaid
-flowchart LR
-  RC{{"RC21008B<br/>200 MHz reference"}}
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
+  RC{{"RC21008B · 200 MHz reference"}}
+
+  subgraph DACT["RF DAC · 2 quad tiles"]
+    T229["tile 229 — VOUT2 · VOUT3<br/>4.0 GSPS"]
+    T228["tile 228"]
+  end
 
   subgraph ADCT["RF ADC · 4 dual tiles"]
-    T224["<b>tile 224</b><br/>VIN01 · VIN23<br/>4.0 GSPS"]
+    T224["tile 224 — VIN01 · VIN23<br/>4.0 GSPS"]
     T225["tile 225"]
     T226["tile 226"]
     T227["tile 227"]
   end
 
-  subgraph DACT["RF DAC · 2 quad tiles"]
-    T228["tile 228"]
-    T229["<b>tile 229</b><br/>VOUT2 · VOUT3<br/>4.0 GSPS"]
-  end
-
-  RC ==> T224
-  RC ==> T229
-
-  T229 ==>|"SMA"| CABLE(["loopback cable"])
-  CABLE ==>|"SMA"| T224
+  RC ==> DACT
+  DACT ==>|"SMA loopback cable"| ADCT
+  RC ==> ADCT
 
   classDef clk   fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
   classDef live  fill:#bbf7d0,stroke:#15803d,stroke-width:3px,color:#052e16
   classDef idle  fill:#f1f5f9,stroke:#94a3b8,stroke-width:1px,color:#475569
-  classDef ext   fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#082f49
 
   class RC clk
   class T224,T229 live
   class T225,T226,T227,T228 idle
-  class CABLE ext
 ```
 
 The two tiles drawn in green are the ones this design enables, and the only two

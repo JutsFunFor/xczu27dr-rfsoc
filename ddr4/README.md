@@ -37,18 +37,22 @@ immediately.
 ## What's fitted
 
 ```mermaid
-flowchart LR
-  XTAL{{"33.333 MHz<br/>crystal"}}
-  DPLL{{"DPLL<br/>1200 MHz"}}
-  MC["PS DDR controller 0xFD07_0000<br/>+ DDR PHY 0xFD08_0000"]
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
+  XTAL{{"33.333 MHz crystal"}}
+  DPLL{{"DPLL · 1200 MHz"}}
+  MC["PS DDR controller 0xFD07_0000<br/>DDR PHY 0xFD08_0000"]
 
   XTAL --> DPLL
-  DPLL -->|"÷2 = 600 MHz<br/>controller clock"| MC
+  DPLL -->|"÷2 = 600 MHz controller clock"| MC
+  MC ==>|"64-bit bus · 2400 MT/s"| DRAM
 
-  MC ==>|"64-bit bus<br/>DRAM clock 1200 MHz<br/>2400 MT/s"| D0[("MT40A512M16JY<br/>512M × 16")]
-  MC ==> D1[("MT40A512M16JY<br/>512M × 16")]
-  MC ==> D2[("MT40A512M16JY<br/>512M × 16")]
-  MC ==> D3[("MT40A512M16JY<br/>512M × 16")]
+  subgraph DRAM["4 GB · DRAM clock 1200 MHz"]
+    D0[("MT40A512M16JY · 512M × 16")]
+    D1[("MT40A512M16JY · 512M × 16")]
+    D2[("MT40A512M16JY · 512M × 16")]
+    D3[("MT40A512M16JY · 512M × 16")]
+  end
 
   classDef ps   fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0b2545
   classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03

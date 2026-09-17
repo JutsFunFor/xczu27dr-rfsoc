@@ -43,17 +43,18 @@ can fake.
 ## The path
 
 ```mermaid
-flowchart LR
-  IOPLL{{"IOPLL<br/>125 MHz"}}
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
+  IOPLL{{"IOPLL · 125 MHz"}}
   GEM["GEM3 · Cadence MAC<br/>0xFF0E_0000"]
   PHY["RTL8211FD<br/>MDIO address 7"]
   MAG["magnetics"]
   RJ(["RJ45"])
-  HOST(["host NIC<br/><i>counts what arrives</i>"])
+  HOST(["host NIC · counts what arrives"])
 
   IOPLL -->|"GEM3_REF_CTRL"| GEM
-  GEM ==>|"RGMII<br/>MIO 64…75"| PHY
-  GEM -.->|"MDIO<br/>MIO 76…77"| PHY
+  GEM ==>|"RGMII · MIO 64…75"| PHY
+  GEM -.->|"MDIO · MIO 76…77"| PHY
   PHY --> MAG --> RJ
   RJ ==>|"Cat-5e"| HOST
 

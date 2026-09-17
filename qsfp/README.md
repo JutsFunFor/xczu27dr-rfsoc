@@ -58,34 +58,26 @@ than the one above it, so it's accumulated slightly more bits. Run
 ## How a cage is wired
 
 ```mermaid
-flowchart LR
-  REF{{"RC21008B<br/>156.25 MHz"}}
-  GPIO["AXI GPIO<br/>0x44A0_0000"]
-  IIC0["AXI IIC · cage 0<br/>0x44A1_0000"]
-  IIC1["AXI IIC · cage 1<br/>0x44A2_0000"]
-  Q0["GTY quad 128<br/>GTYE4_COMMON_X0Y1<br/>channels X0Y4…X0Y7"]
-  Q1["GTY quad 129<br/>GTYE4_COMMON_X0Y2<br/>channels X0Y8…X0Y11"]
-
-  subgraph C0["cage 0 · schematic QSFP1"]
-    S0["7 sidebands<br/>bank 88, LVCMOS33"]
-    L0["4 lanes"]
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
+  subgraph FAB["PL fabric"]
+    REF{{"RC21008B · 156.25 MHz"}}
+    GPIO["AXI GPIO · 0x44A0_0000<br/>14 sideband signals"]
+    IIC["AXI IIC · module I²C<br/>0x44A1_0000 → cage 0<br/>0x44A2_0000 → cage 1"]
   end
 
-  subgraph C1["cage 1 · schematic QSFP2"]
-    S1["7 sidebands<br/>bank 88, LVCMOS33"]
-    L1["4 lanes"]
+  subgraph GTYQ["GTY quads · 8 lanes"]
+    Q0["quad 128 · X0Y1 → cage 0<br/>channels X0Y4…X0Y7"]
+    Q1["quad 129 · X0Y2 → cage 1<br/>channels X0Y8…X0Y11"]
   end
 
-  REF --> Q0
-  REF --> Q1
-  GPIO --> S0
-  GPIO --> S1
-  IIC0 -.->|"I²C"| S0
-  IIC1 -.->|"I²C"| S1
-  Q0 ==>|"10.3125 Gbps"| L0
-  Q1 ==>|"10.3125 Gbps"| L1
-  L0 ==>|"4 lanes · passive copper DAC cable"| L1
-  L1 ==>|"4 lanes · the other direction"| L0
+  FAB ==> GTYQ
+  GTYQ ==>|"10.3125 Gbps · copper DAC cable<br/>cage 0 ↔ cage 1"| CAGES
+
+  subgraph CAGES["2 × QSFP28 cages"]
+    C0["cage 0 · schematic QSFP1<br/>7 sidebands, bank 88"]
+    C1["cage 1 · schematic QSFP2<br/>7 sidebands, bank 88"]
+  end
 
   classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
   classDef pl   fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
@@ -93,9 +85,9 @@ flowchart LR
   classDef cage fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
 
   class REF clk
-  class GPIO,IIC0,IIC1 pl
+  class GPIO,IIC pl
   class Q0,Q1 gty
-  class S0,S1,L0,L1 cage
+  class C0,C1 cage
 ```
 
 The two cages sit on **independent I²C buses**, which is why the test design

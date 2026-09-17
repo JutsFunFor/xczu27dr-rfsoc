@@ -31,22 +31,26 @@ xsdb jtag_check.tcl
 ## What's on the chain
 
 ```mermaid
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
   CABLE(["Platform Cable USB II"])
-  TAP{{"xczu27dr<br/>IDCODE 0x147E4093"}}
+  TAP{{"xczu27dr · IDCODE 0x147E4093"}}
   CABLE ==> TAP
+  TAP ==> PSD
+  TAP ==> PLD
+  PSD ~~~ PLD
 
-  TAP ==> PSTAP["PS TAP"]
-  TAP ==> PLTAP["PL TAP"]
+  subgraph PSD["PS TAP"]
+    PSU["PSU · the DAP memory view<br/>reads and writes any address"]
+    PMU["PMU · MicroBlaze"]
+    APU["APU · 4 × Cortex-A53"]
+    RPU["RPU · 2 × Cortex-R5"]
+  end
 
-  PSTAP --> PSU["<b>PSU</b> — the DAP memory view<br/>reads and writes any address"]
-  PSTAP --> PMU["PMU<br/>MicroBlaze"]
-  PSTAP --> APU["APU<br/>4 × Cortex-A53"]
-  PSTAP --> RPU["RPU<br/>2 × Cortex-R5"]
-
-  PLTAP --> HUB["debug hub"]
-  HUB --> AXI["JTAG-to-AXI master<br/><i>if the loaded design has one</i>"]
-  HUB --> ILA["ILA / VIO cores"]
+  subgraph PLD["PL TAP · debug hub"]
+    AXI["JTAG-to-AXI master<br/>if the loaded design has one"]
+    ILA["ILA / VIO cores"]
+  end
 
   classDef ps    fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0b2545
   classDef pl    fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
@@ -54,8 +58,8 @@ flowchart TD
   classDef ext   fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
   classDef star  fill:#bbf7d0,stroke:#15803d,stroke-width:3px,color:#052e16
 
-  class PSTAP,PMU,APU,RPU ps
-  class PLTAP,HUB,AXI,ILA pl
+  class PMU,APU,RPU ps
+  class AXI,ILA pl
   class TAP clk
   class CABLE ext
   class PSU star

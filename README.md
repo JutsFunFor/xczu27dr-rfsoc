@@ -7,77 +7,61 @@ outputs back into the ADC inputs, both QSFP28 cages in the middle, gigabit
 Ethernet and the USB-C console down the left side, and a rather serious fan
 over the RFSoC itself.*
 
-This is the manual for a **Xilinx Zynq UltraScale+ RFSoC XCZU27DR** board
-(`xczu27dr-fsve1156-1-i`, revision v1.1) — a genuinely capable piece of hardware
-that arrives with a schematic and almost nothing else. No manual, no pin list,
-no worked examples. If you own one, you've probably already discovered that the
-hard way.
+A board support package for the **Xilinx Zynq UltraScale+ RFSoC XCZU27DR**
+(`xczu27dr-fsve1156-1-i`, revision v1.1) — pin map, worked examples, and a page
+of notes per interface, written while bringing the board up one piece at a time.
 
-So somebody had to write the manual. That's this. It was put together by
-bringing the board up one interface at a time and writing down what actually
-happened, mistakes included.
+**Every folder here has scripts you can just run.** Tcl that builds what it
+needs, programs the board over JTAG, exercises the interface and tells you
+plainly whether it worked. Alongside each one is a page covering the pins, the
+registers, and the traps that'll otherwise cost you an afternoon.
 
-**The part that matters: every folder here has scripts you can just run.** Not
-snippets to adapt, not fragments that assume a setup you don't have — Tcl that
-builds what it needs, programs the board over JTAG, exercises the interface and
-tells you plainly whether it worked. Alongside each one is a page covering the
-pins, the registers, and the traps that'll otherwise cost you an afternoon.
-
-Everything was derived from the schematic and from the hardware itself. The pin
-map was read off the schematic and checked against a routed build. The processor
-configuration is written out from board parameters in plain Tcl. The RF and
-transceiver designs come from AMD's own IP. You need the board, a JTAG cable and
-Vivado — nothing else.
+The pin map was read off the schematic and checked against a routed build. The
+processor configuration is written out from board parameters in plain Tcl. The
+RF and transceiver designs come from AMD's own IP. You need the board, a JTAG
+cable and Vivado — nothing else.
 
 ---
 
 ## What's on the board
 
 ```mermaid
-flowchart LR
-  HOST(["Host PC<br/>Vivado · xsdb"])
-  JTAG{{"JTAG<br/>Platform Cable USB II"}}
+%%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
+flowchart TD
+  HOST(["Host PC · Vivado + xsdb"])
+  JTAG{{"JTAG · Platform Cable USB II"}}
   HOST ==> JTAG
+  JTAG ==> PS
+  JTAG ==> PL
+  PS ~~~ CLK
+  CLK{{"RC21008B clock synthesiser"}} -->|"200 / 156.25 MHz"| PL
 
-  subgraph PS["Processing System · 4 × Cortex-A53 + 2 × Cortex-R5"]
-    DDR[("DDR4<br/>4 GB")]
-    GEM["GEM3<br/>Gigabit Ethernet"]
-    SD["SD1<br/>microSD"]
-    UART["UART0<br/>USB-C console"]
+  subgraph PS["Processing System"]
+    CPU["4 × Cortex-A53 · 2 × Cortex-R5"]
+    DDR[("DDR4 · 4 GB")]
+    GEM["GEM3 → RTL8211FD → RJ45"]
+    SD["SD1 · microSD"]
+    UART["UART0 → USB-C console"]
   end
 
   subgraph PL["Programmable Logic"]
-    RF["RF converters<br/>8 ADC in · 8 DAC out"]
-    GTY["8 × GTY lanes<br/>quads 128 / 129"]
-    IO["LEDs · J7 header<br/>QSFP sidebands"]
+    RF["RF · 8 ADC + 8 DAC → 8 × SMA"]
+    GTY["8 × GTY lanes → 2 × QSFP28"]
+    IO["LEDs · J7 header"]
   end
-
-  CLK{{"RC21008B<br/>clock synthesiser"}}
-  CLK -->|"200 MHz"| RF
-  CLK -->|"156.25 MHz"| GTY
-
-  JTAG ==> PS
-  JTAG ==> PL
-
-  GEM --> RJ(["RJ45"])
-  RF --> SMA(["8 × SMA"])
-  GTY --> QS(["2 × QSFP28 cages"])
-  IO -.->|"sidebands"| QS
 
   classDef ps   fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#0b2545
   classDef pl   fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#2e1065
   classDef clk  fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#451a03
   classDef rf   fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#052e16
   classDef mem  fill:#ffe4e6,stroke:#e11d48,stroke-width:2px,color:#4c0519
-  classDef ext  fill:#f1f5f9,stroke:#64748b,stroke-width:2px,color:#0f172a
   classDef host fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#082f49
 
-  class GEM,SD,UART ps
+  class CPU,GEM,SD,UART ps
   class DDR mem
   class GTY,IO pl
   class RF rf
   class CLK,JTAG clk
-  class RJ,SMA,QS ext
   class HOST host
 ```
 
