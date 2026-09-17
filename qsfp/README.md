@@ -57,6 +57,11 @@ than the one above it, so it's accumulated slightly more bits. Run
 
 ## How a cage is wired
 
+![QSFP28 path: the PL fabric blocks feed the two GTY quads, which drive the two QSFP28 cages over a copper DAC cable](../docs/diagrams/qsfp.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -89,6 +94,8 @@ flowchart TD
   class Q0,Q1 gty
   class C0,C1 cage
 ```
+
+</details>
 
 The two cages sit on **independent I²C buses**, which is why the test design
 carries two controllers rather than one behind a mux.

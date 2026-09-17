@@ -25,6 +25,11 @@ cable and Vivado — nothing else.
 
 ## What's on the board
 
+![Board block diagram: a host PC reaches the processing system and the programmable logic over JTAG, while the RC21008B clock synthesiser feeds the RF converters and GTY lanes](docs/diagrams/overview.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -64,6 +69,8 @@ flowchart TD
   class CLK,JTAG clk
   class HOST host
 ```
+
+</details>
 
 | | |
 |---|---|

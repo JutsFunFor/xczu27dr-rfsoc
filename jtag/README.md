@@ -30,6 +30,11 @@ xsdb jtag_check.tcl
 
 ## What's on the chain
 
+![JTAG chain: the Platform Cable USB II reaches the xczu27dr TAP, which splits into the PS TAP debug targets and the PL TAP debug hub](../docs/diagrams/jtag.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -64,6 +69,8 @@ flowchart TD
   class CABLE ext
   class PSU star
 ```
+
+</details>
 
 `PSU` is highlighted because it's the one you'll use most — it's the memory view
 that lets you read and write any address on the chip without a single line of

@@ -57,6 +57,11 @@ BSP adds.
 
 ## What's on the board
 
+![RF loopback: the RC21008B 200 MHz reference clocks DAC tile 229 and ADC tile 224, joined by an SMA loopback cable](../docs/diagrams/adc-dac.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -86,6 +91,8 @@ flowchart TD
   class T224,T229 live
   class T225,T226,T227,T228 idle
 ```
+
+</details>
 
 The two tiles drawn in green are the ones this design enables, and the only two
 that reach SMA connectors on this board. The greyed-out ones report powered but

@@ -45,6 +45,11 @@ it and reports all four reference clocks.
 
 ## The clock tree
 
+![Clock tree: the RC21008B feeds the RF tiles, both GTY quads and SYSREF, alongside a separate 33.333 MHz crystal driving the PS PLLs](../docs/diagrams/clocking.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -83,6 +88,8 @@ flowchart TD
   class Q0,Q1 pl
   class I2C,PSPLL ps
 ```
+
+</details>
 
 | | |
 |---|---|

@@ -42,6 +42,11 @@ the physical ordering.
 
 ## Pins
 
+![LED test design: a JTAG-to-AXI master drives an AXI GPIO, whose two channels light the three user LEDs and the six J7 header pins](../docs/diagrams/leds.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -72,6 +77,8 @@ flowchart TD
   class D1,D5,D4 led
   class HDR ext
 ```
+
+</details>
 
 | signal | ball | schematic net | silkscreen | I/O standard |
 |---|---|---|---|---|

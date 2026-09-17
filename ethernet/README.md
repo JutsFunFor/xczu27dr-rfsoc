@@ -42,6 +42,11 @@ can fake.
 
 ## The path
 
+![Ethernet path: the IOPLL clocks GEM3, which reaches the RTL8211FD PHY over RGMII and MDIO, then runs through magnetics to RJ45 and the host NIC](../docs/diagrams/ethernet.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -68,6 +73,8 @@ flowchart TD
   class RJ ext
   class HOST host
 ```
+
+</details>
 
 | | |
 |---|---|

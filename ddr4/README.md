@@ -36,6 +36,11 @@ immediately.
 
 ## What's fitted
 
+![DDR4 path: the 33.333 MHz crystal feeds the DPLL and the PS DDR controller, which drives four MT40A512M16JY devices over a 64-bit bus](../docs/diagrams/ddr4.png)
+
+<details>
+<summary>Diagram source (Mermaid)</summary>
+
 ```mermaid
 %%{init: {"flowchart": {"nodeSpacing": 25, "rankSpacing": 30, "padding": 6}}}%%
 flowchart TD
@@ -62,6 +67,8 @@ flowchart TD
   class XTAL,DPLL clk
   class D0,D1,D2,D3 mem
 ```
+
+</details>
 
 | | |
 |---|---|
